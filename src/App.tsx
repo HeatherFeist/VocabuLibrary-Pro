@@ -2,35 +2,47 @@ import React, { useEffect, useState } from 'react';
 import { DailyWords } from './components/DailyWords';
 import { Dictionary } from './components/Dictionary';
 import { Navigation } from './components/Navigation';
+import { AuthForm } from './components/AuthForm';
 import { useUserStore } from './store/userStore';
-import { GraduationCap } from 'lucide-react';
+import { supabase } from './lib/supabase';
+import { GraduationCap, LogOut } from 'lucide-react';
 
 function App() {
-  const { loadUserData, user, streak, coins } = useUserStore();
+  const { loadUserData, user, streak, coins, loading, signOut } = useUserStore();
   const [activeTab, setActiveTab] = useState<'daily' | 'dictionary'>('daily');
 
   useEffect(() => {
     loadUserData();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        loadUserData();
+      } else if (event === 'SIGNED_OUT') {
+        // User store will be updated by signOut function
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <GraduationCap className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold mb-4">Daily Vocabulary Challenge</h1>
-          <p className="text-gray-600 mb-8">Build your vocabulary with daily words and challenges</p>
-          {/* Add authentication UI here */}
-          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md mx-auto">
-            <p className="text-sm text-gray-500 mb-4">
-              Sign in to track your progress, earn coins, and maintain your learning streak!
-            </p>
-            <button className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
-              Sign In to Start Learning
-            </button>
-          </div>
-        </div>
-      </div>
+      <AuthForm onAuthSuccess={() => {
+        // The auth state change listener will handle reloading user data
+      }} />
     );
   }
 
@@ -38,9 +50,24 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <GraduationCap className="w-8 h-8 text-blue-500" />
-            <h1 className="text-2xl font-bold text-gray-800">Vocabulary Master</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <GraduationCap className="w-8 h-8 text-blue-500" />
+              <h1 className="text-2xl font-bold text-gray-800">Vocabulary Master</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                Welcome, {user.email?.split('@')[0]}!
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -60,3 +87,5 @@ function App() {
 }
 
 export default App;
+    );
+  }
