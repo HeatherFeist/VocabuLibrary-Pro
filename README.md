@@ -6,6 +6,7 @@ Complete Dictionary:
 Each entry includes word, definition, part of speech, pronunciation, example sentence, and difficulty level (1-5)
 Search functionality to find words by name or definition
 Filter by difficulty level
+
 Beautiful card-based layout with difficulty indicators
 
 Enhanced Navigation:
