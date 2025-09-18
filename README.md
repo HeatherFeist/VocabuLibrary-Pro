@@ -1,5 +1,7 @@
-VocabuLibrary-Pro
+VocabuLibrary Pro
+
 Features:
+
 Complete Dictionary:
 Each entry includes word, definition, part of speech, pronunciation, example sentence, and difficulty level (1-5)
 Search functionality to find words by name or definition
@@ -24,6 +26,7 @@ Proper indexing for fast search performance
 Connection between daily words and dictionary entries
 
 Key Features:
+
 Search & Filter: Users can search the dictionary by word or definition and filter by difficulty
 Difficulty Levels: Words are categorized from Beginner (1) to Expert (5)
 Rich Content: Each dictionary entry includes pronunciation, part of speech, and example sentences
