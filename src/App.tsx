@@ -97,7 +97,7 @@ function App() {
       <main className="py-8">
         {activeTab === 'daily' && <DailyWords />}
         {activeTab === 'dictionary' && <Dictionary />}
-        {activeTab === 'admin' && <AdminPanel />}
+  {activeTab === 'admin' && <AdminPanel setActiveTab={setActiveTab} />}
       </main>
     </div>
   );

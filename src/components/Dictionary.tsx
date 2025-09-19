@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
+
+function pronounceWord(word: string) {
+  if ('speechSynthesis' in window) {
+    const utterance = new window.SpeechSynthesisUtterance(word);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  }
+}
 import { supabase } from '../lib/supabase';
 import { Search, Book, Volume2, Star } from 'lucide-react';
+
+interface APIDefinition {
+  word: string;
+  phonetics?: { text?: string; audio?: string }[];
+  meanings?: { partOfSpeech?: string; definitions: { definition: string; example?: string }[] }[];
+}
 
 interface DictionaryEntry {
   id: string;
@@ -16,6 +30,9 @@ export function Dictionary() {
   const [entries, setEntries] = useState<DictionaryEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredEntries, setFilteredEntries] = useState<DictionaryEntry[]>([]);
+  const [apiResult, setApiResult] = useState<DictionaryEntry | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +43,40 @@ export function Dictionary() {
   useEffect(() => {
     filterEntries();
   }, [searchTerm, selectedDifficulty, entries]);
+
+  useEffect(() => {
+    if (filteredEntries.length === 0 && searchTerm.trim()) {
+      fetchFromAPI(searchTerm.trim());
+    } else {
+      setApiResult(null);
+      setApiError('');
+    }
+    // eslint-disable-next-line
+  }, [filteredEntries, searchTerm]);
+  async function fetchFromAPI(word: string) {
+    setApiLoading(true);
+    setApiError('');
+    setApiResult(null);
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      if (!res.ok) throw new Error('Word not found');
+      const data: APIDefinition[] = await res.json();
+      const entry = data[0];
+      setApiResult({
+        id: entry.word,
+        word: entry.word,
+        definition: entry.meanings?.[0]?.definitions?.[0]?.definition || 'No definition found.',
+        part_of_speech: entry.meanings?.[0]?.partOfSpeech || '',
+        pronunciation: entry.phonetics?.[0]?.text || '',
+        example_sentence: entry.meanings?.[0]?.definitions?.[0]?.example || '',
+        difficulty_level: 1,
+      });
+    } catch (err: any) {
+      setApiError('No definition found for this word.');
+    } finally {
+      setApiLoading(false);
+    }
+  }
 
   const loadDictionary = async () => {
     setLoading(true);
@@ -79,7 +130,7 @@ export function Dictionary() {
     return labels[level as keyof typeof labels] || 'Unknown';
   };
 
-  if (loading) {
+  if (loading || apiLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -132,8 +183,15 @@ export function Dictionary() {
         {filteredEntries.map((entry) => (
           <div key={entry.id} className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
             <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
+              <div className="flex-1 flex items-center gap-2">
                 <h3 className="text-xl font-bold text-gray-800 mb-1">{entry.word}</h3>
+                <button
+                  onClick={() => pronounceWord(entry.word)}
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs"
+                  title={`Listen to pronunciation of ${entry.word}`}
+                >
+                  Listen
+                </button>
                 {entry.part_of_speech && (
                   <span className="text-sm text-gray-500 italic">{entry.part_of_speech}</span>
                 )}
@@ -175,13 +233,52 @@ export function Dictionary() {
             </div>
           </div>
         ))}
+        {/* API result if no local entries found */}
+        {filteredEntries.length === 0 && apiResult && (
+          <div className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1 flex items-center gap-2">
+                <h3 className="text-xl font-bold text-gray-800 mb-1">{apiResult.word}</h3>
+                <button
+                  onClick={() => pronounceWord(apiResult.word)}
+                  className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs"
+                  title={`Listen to pronunciation of ${apiResult.word}`}
+                >
+                  Listen
+                </button>
+                {apiResult.part_of_speech && (
+                  <span className="text-sm text-gray-500 italic">{apiResult.part_of_speech}</span>
+                )}
+              </div>
+              <div className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(apiResult.difficulty_level)}`}>
+                {getDifficultyLabel(apiResult.difficulty_level)}
+              </div>
+            </div>
+
+            {apiResult.pronunciation && (
+              <div className="flex items-center gap-2 mb-3">
+                <Volume2 className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-600 font-mono">{apiResult.pronunciation}</span>
+              </div>
+            )}
+
+            <p className="text-gray-700 mb-4 leading-relaxed">{apiResult.definition}</p>
+
+            {apiResult.example_sentence && (
+              <div className="border-l-4 border-blue-200 pl-4 py-2 bg-blue-50 rounded-r">
+                <p className="text-sm text-gray-700 italic">"{apiResult.example_sentence}"</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {filteredEntries.length === 0 && (
+      {filteredEntries.length === 0 && !apiResult && (
         <div className="text-center py-12">
           <Book className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-500 mb-2">No words found</h3>
           <p className="text-gray-400">Try adjusting your search terms or filters</p>
+          {apiError && <p className="text-red-500 mt-2">{apiError}</p>}
         </div>
       )}
     </div>
